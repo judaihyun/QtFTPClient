@@ -36,9 +36,27 @@
     <ClCompile Include="QtGuiApplication1.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FtpClient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ControlHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ErrorHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="QtGuiApplication1.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="FtpClient.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="ControlHandler.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
@@ -51,5 +69,16 @@
     <QtRcc Include="QtGuiApplication1.qrc">
       <Filter>Resource Files</Filter>
     </QtRcc>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="WinSockHeader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ErrorHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

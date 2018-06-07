@@ -1,4 +1,9 @@
 <RCC>
-    <qresource prefix="QtGuiApplication1">
+    <qresource prefix="/QtGuiApplication1">
+        <file alias="SiteManage">I:/Skins For GUI Programming/Icon/sitemanager.png</file>
+        <file>I:/Skins For GUI Programming/Icon/refresh.png</file>
+        <file>I:/Skins For GUI Programming/Icon/cancel.png</file>
+        <file>I:/Skins For GUI Programming/Icon/disconnect.png</file>
+        <file>I:/Skins For GUI Programming/Icon/reconnect.png</file>
     </qresource>
 </RCC>
