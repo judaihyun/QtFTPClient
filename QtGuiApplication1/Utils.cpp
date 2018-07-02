@@ -1,5 +1,32 @@
 #include "Utils.h"
 
+void extractFileName(QStringList& input, QString& output){
+
+	for (int j = 3; j < input.length(); j++) {
+		if (j == input.length()) break;
+		output += input[j] + " ";
+	}
+	
+}
+
+
+QString sizeFormat(quint64 size)
+{
+	qreal calc = size;
+	QStringList list;
+	list << "KB" << "MB" << "GB" << "TB";
+
+	QStringListIterator i(list);
+	QString unit("byte(s)");
+
+	while (calc >= 1024.0 && i.hasNext())
+	{
+		unit = i.next();
+		calc /= 1024.0;
+	}
+
+	return QString().setNum(calc, 'f', 2) + " " + unit;
+}
 
 
 QString variadicToQstring(const char* fmt, ...) {

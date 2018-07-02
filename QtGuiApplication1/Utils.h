@@ -2,6 +2,7 @@
 #include "WinSockHeader.h"
 #include <sstream>
 #include <QString>
+#include <qstringlist.h>
 #define PRINT_BUFSIZE 10000
 
 
@@ -21,6 +22,10 @@ void printPerms(fs::perms p);
 void printStatus(const fs::path& p, fs::file_status s);
 
 QString variadicToQstring(const char*, ...);
+
+QString sizeFormat(quint64 size);
+
+void extractFileName(QStringList& input, QString& output);
 /*
 void DisplayText(const char *fmt, ...);
 

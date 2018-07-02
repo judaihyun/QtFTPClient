@@ -1,6 +1,8 @@
 #include "ControlHandler.h"
 
-
+namespace qcout {
+	QTextStream cout(stdout, QIODevice::WriteOnly);
+}
 
 int ControlHandler::sendMsg(const string msg) {
 	emit printLog(LOG_DEBUG, msg.c_str());
@@ -9,12 +11,14 @@ int ControlHandler::sendMsg(const string msg) {
 		errorHandle->err_display("sendMsg()");
 
 	}
+	
 	return retval;
 }
 
 
 void ControlHandler::controlRecv() {
 	int retval{ 0 };
+	responseBuf[0] = '\0';
 	retval = recv(controlSock, responseBuf, RES_BUFSIZE, 0);
 	responseBuf[retval] = '\0';
 	if (retval == SOCKET_ERROR) {
@@ -24,26 +28,27 @@ void ControlHandler::controlRecv() {
 	}
 
 }
-void actRefresh() {
-	cout << "working. refresh test" << endl;
-}
 
+void ControlHandler::commandDetect(const QString& input) {
+	emit printLog(LOG_DEBUG, "input commands " + input);
+	
+	strcpy_s(requestBuf, sizeof(requestBuf), input.left(input.length() - 1).toStdString().c_str());
+
+	requestHandler();
+};
 
 int ControlHandler::controlActivate() {
 	emit printLog(LOG_INFO, variadicToQstring("%d, ControlActivated", getConId()));
 	int addrlen{ 0 };
 	int retval{ 0 };
-	cout << "contronActive" << endl;
+	cout << "controlActive" << endl;
 
 	// if PASV or PORT ÇØ¾ßÇÔ
 
-	//pasvInitProcess();
 	
-
-
-	requestHandler();
+	pasvInitProcess();
 	loop.exec();
-	cout << "loop exit()\n";
+	cout << "loop exit() in controlHandler\n";
 
 	return 0;
 }
@@ -55,12 +60,10 @@ int ControlHandler::requestHandler() {
 	vector<string> argv;
 
 	commandSeparator(argv, requestBuf);
-	cout << "received commands : " << argv[0] << " " << argv[1] << endl;
+	cout << "request commands : " << argv[0] << " " << argv[1] << endl;
 
-	if (argv[0] == "PASV_INIT") {
-		pasvInitProcess();
-	}
-	else if (argv[0] == "LIST") {
+	
+	if (argv[0] == "LIST") {
 		sendMsg("PASV");
 		controlRecv();
 		responseHandler();
@@ -68,10 +71,57 @@ int ControlHandler::requestHandler() {
 		sendMsg("LIST");
 		retval = recv(dataConnectSock, dirList, DIR_BUFSIZE, 0);
 		if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
-		//DisplayDir(dirList);
+
+		emit printDirCwd(QString::fromLocal8Bit(dirList));
 
 		controlRecv();
 		responseHandler();
+	}
+	else if (argv[0] == "CWDLIST") { /* get specific Directory List for downloading list*/
+		sendMsg("CWD " + argv[1] + CRLF);
+		controlRecv();
+		responseHandler();
+
+		sendMsg("PWD");
+		controlRecv();
+		responseHandler();
+
+		sendMsg("PASV");
+		controlRecv();
+		responseHandler();
+
+		sendMsg("LIST");
+		controlRecv();
+		responseHandler();
+
+		retval = recv(dataConnectSock, dirList, DIR_BUFSIZE, 0);
+		if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
+		dirList[retval] = '\0';
+
+		emit recurDirList(QString::fromLocal8Bit(dirList));
+	}
+	else if (argv[0] == "CWD") {
+		sendMsg("CWD " + argv[1] + CRLF);
+		controlRecv();
+		responseHandler();
+
+		sendMsg("PWD");
+		controlRecv();
+		responseHandler();
+
+		sendMsg("PASV");
+		controlRecv();
+		responseHandler();
+
+		sendMsg("LIST");
+		controlRecv();
+		responseHandler();
+
+		retval = recv(dataConnectSock, dirList, DIR_BUFSIZE, 0);
+		if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
+		dirList[retval] = '\0';
+		cout << "dir LIst : " << dirList;
+		emit printDirCwd(QString::fromLocal8Bit(dirList));
 	}
 	else if (argv[0] == "BULK") {
 		sendMsg("PASV");
@@ -82,6 +132,25 @@ int ControlHandler::requestHandler() {
 		controlRecv();
 		responseHandler();
 	}
+	else if (argv[0] == "RETR") {
+		sendMsg("PASV");
+		controlRecv();
+		responseHandler();
+
+		sendMsg("RETR " + argv[1]);
+		controlRecv();
+		responseHandler();
+
+		
+		retval = recv(dataConnectSock, buf, MAX_FILE_SIZE, 0);
+		if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
+		buf[retval] = '\0';
+
+
+	
+		controlRecv();
+		responseHandler();
+	}
 	else {
 		emit printLog(LOG_INFO, variadicToQstring("Not defined command : %s", argv[1].c_str()));
 	}
@@ -89,13 +158,77 @@ int ControlHandler::requestHandler() {
 	return 1;
 }
 
-int ControlHandler::responseHandler() {
+int ControlHandler::pasvRecvFile() {
+	emit printLog(LOG_DEBUG, "[FUNC] pasvSendFile()");
+	int retval = 0;
+	int addrlen{ 0 };
+	int size = 4096;
+	__int64 fileSize = 0;
 
+	addrlen = sizeof(dataClient_addr);
+	clientDataSock = accept(dataConnectSock, (SOCKADDR*)&dataClient_addr, &addrlen);
+	if (clientDataSock == INVALID_SOCKET) {
+		errorHandle->err_display("data-pasv accept()");
+		closesocket(dataConnectSock);
+	}
+	emit printLog(LOG_INFO, variadicToQstring("[PASV.dataChannel - client] : IP = %s, Port = %d\n",
+		inet_ntoa(dataClient_addr.sin_addr), ntohs(dataClient_addr.sin_port)));
+
+	fileSize = openFile();
+
+	char buf[4096];
+	while (!ifs->eof()) {
+
+		if (!ifs->read(buf, size)) {
+			size = (int)ifs->gcount();
+		}
+		retval = send(clientDataSock, buf, size, 0);
+		if (retval == SOCKET_ERROR) {
+			errorHandle->err_display("send()");
+			return -1;
+		}
+	}
+	closesocket(clientDataSock);
+	ifs->close();
+	sendMsg("226 Transfer complete." + CRLF);
+
+	return 1;
+}
+
+__int64 ControlHandler::openFile() {
+	emit printLog(LOG_TRACE, variadicToQstring("openFile(), fileName : %s ", getFileName().c_str()));
+	__int64 startPos{ 0 };
+	__int64 fileSize{ 0 };
+	string targetFile = getRootPath();
+	targetFile += getCurPath() + getFileName();
+
+	ifs = new ifstream;
+	ifs->open(targetFile, std::ios_base::binary);
+	if (getRetrSize() > 0) {  // for REST
+		startPos = getRetrSize();
+		ifs->seekg(startPos, ios::beg);
+		return fileSize;
+	}
+
+	if (!ifs) {
+		sendMsg("550 file open failed" + CRLF);
+		errorHandle->err_quit("file open failed");
+		return -1;
+	}
+	ifs->seekg(0, ios::end);
+	fileSize = ifs->tellg();
+	ifs->seekg(0, ios::beg);
+
+	sendMsg("125 Data connection already open; Transfer starting." + CRLF);
+	return fileSize;
+}
+
+int ControlHandler::responseHandler() {
 	int retval{ 0 };
 	vector<string> argv;
 
 	commandSeparator(argv, responseBuf);
-	cout << "received commands : " << argv[0] << " " << argv[1] << endl;
+	cout << "response commands : " << argv[0] << " " << argv[1] << endl;
 
 	if (argv[0] == "226") {
 		emit printLog(LOG_INFO, variadicToQstring("%s %s", argv[0].c_str(), argv[1].c_str()));
@@ -105,16 +238,19 @@ int ControlHandler::responseHandler() {
 	}
 	else if (argv[0] == "257") { // directory commands
 		string path = extractPath(argv[1]);
-		movePath(path);
+		//movePath(path);
 		emit printLog(LOG_TRACE, variadicToQstring("Current Path : %s", getCurPath().c_str()));
 	}
 	else if (argv[0] == "LIST") {
 		emit printLog(LOG_ERROR, "Must be performed PASV/PORT Command first");
 	}
 	else if (argv[0] == "250") {   // CWD
-		emit printLog(LOG_TRACE, "Must be performed PWD->PASV->LIST");
+		emit printLog(LOG_INFO, variadicToQstring("%s %s",argv[0].c_str(), argv[1].c_str()));
 	}
 	else if (argv[0] == "220") {  //Service ready for user, welcome
+		emit printLog(LOG_INFO, variadicToQstring("%s %s", argv[0].c_str(), argv[1].c_str()));
+	}
+	else if (argv[0] == "125"){
 		emit printLog(LOG_INFO, variadicToQstring("%s %s", argv[0].c_str(), argv[1].c_str()));
 	}
 	else {
@@ -204,72 +340,9 @@ int ControlHandler::portSendFile() {
 
 
 
-__int64 ControlHandler::openFile() {
-	emit printLog(LOG_TRACE, variadicToQstring("openFile(), fileName : %s ", getFileName().c_str()));
-	__int64 startPos{ 0 };
-	__int64 fileSize{ 0 };
-	string targetFile = getRootPath();
-	targetFile += getCurPath() + getFileName();
-
-	ifs = new ifstream;
-	ifs->open(targetFile, std::ios_base::binary);
-	if (getRetrSize() > 0) {  // for REST
-		startPos = getRetrSize();
-		ifs->seekg(startPos, ios::beg);
-		return fileSize;
-	}
-
-	if (!ifs) {
-		sendMsg("550 file open failed" + CRLF);
-		errorHandle->err_quit("file open failed");
-		return -1;
-	}
-	ifs->seekg(0, ios::end);
-	fileSize = ifs->tellg();
-	ifs->seekg(0, ios::beg);
-
-	sendMsg("125 Data connection already open; Transfer starting." + CRLF);
-	return fileSize;
-}
 
 
 
-int ControlHandler::pasvSendFile() {
-	emit printLog(LOG_DEBUG, "[FUNC] pasvSendFile()");
-	int retval = 0;
-	int addrlen{ 0 };
-	int size = 4096;
-	__int64 fileSize = 0;
-
-	addrlen = sizeof(dataClient_addr);
-	clientDataSock = accept(dataConnectSock, (SOCKADDR*)&dataClient_addr, &addrlen);
-	if (clientDataSock == INVALID_SOCKET) {
-		errorHandle->err_display("data-pasv accept()");
-		closesocket(dataConnectSock);
-	}
-	emit printLog(LOG_INFO, variadicToQstring("[PASV.dataChannel - client] : IP = %s, Port = %d\n",
-		inet_ntoa(dataClient_addr.sin_addr), ntohs(dataClient_addr.sin_port)));
-
-	fileSize = openFile();
-
-	char buf[4096];
-	while (!ifs->eof()) {
-
-		if (!ifs->read(buf, size)) {
-			size = (int)ifs->gcount();
-		}
-		retval = send(clientDataSock, buf, size, 0);
-		if (retval == SOCKET_ERROR) {
-			errorHandle->err_display("send()");
-			return -1;
-		}
-	}
-	closesocket(clientDataSock);
-	ifs->close();
-	sendMsg("226 Transfer complete." + CRLF);
-
-	return 1;
-}
 
 
 void ControlHandler::createPORTSock(string argv) {
@@ -443,6 +516,10 @@ void ControlHandler::pasvInitProcess() {
 	}
 	responseHandler(); // welcome message processing
 
+	sendMsg("PWD");
+	controlRecv();
+	responseHandler();
+
 	sendMsg("PASV");
 	controlRecv();
 	responseHandler();
@@ -451,6 +528,15 @@ void ControlHandler::pasvInitProcess() {
 	sendMsg("LIST");
 	retval = recv(dataConnectSock, dirList, DIR_BUFSIZE, 0);
 	if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
+	dirList[retval] = '\0';
+
+	
+
+	//qcout::cout << QString::fromLocal8Bit(dirList) << endl;
+	//emit printDir(QString::fromLocal8Bit(dirList));
+	emit printDirCwd(QString::fromLocal8Bit(dirList));
+
+	//cout << dirList << endl;
 	//DisplayDir(dirList);
 
 	controlRecv();

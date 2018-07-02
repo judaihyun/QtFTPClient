@@ -12,6 +12,7 @@
 #include <QtCore/QVariant>
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
@@ -22,6 +23,7 @@
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolBar>
+#include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
 QT_BEGIN_NAMESPACE
@@ -48,6 +50,9 @@ public:
     QLabel *label_4;
     QPushButton *conBtn;
     QTextEdit *textEdit;
+    QTreeView *localTree;
+    QTreeView *remoteTree;
+    QTreeView *downlistTree;
     QMenuBar *menuBar;
     QMenu *menu_F;
     QMenu *menu_V;
@@ -129,8 +134,19 @@ public:
         textEdit->setObjectName(QStringLiteral("textEdit"));
         textEdit->setEnabled(true);
         textEdit->setGeometry(QRect(0, 50, 1001, 251));
+        textEdit->setAcceptDrops(false);
         textEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         textEdit->setTabChangesFocus(true);
+        textEdit->setReadOnly(true);
+        localTree = new QTreeView(centralWidget);
+        localTree->setObjectName(QStringLiteral("localTree"));
+        localTree->setGeometry(QRect(0, 310, 461, 181));
+        remoteTree = new QTreeView(centralWidget);
+        remoteTree->setObjectName(QStringLiteral("remoteTree"));
+        remoteTree->setGeometry(QRect(490, 310, 511, 181));
+        downlistTree = new QTreeView(centralWidget);
+        downlistTree->setObjectName(QStringLiteral("downlistTree"));
+        downlistTree->setGeometry(QRect(0, 500, 1001, 201));
         QtGuiApplication1Class->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(QtGuiApplication1Class);
         menuBar->setObjectName(QStringLiteral("menuBar"));

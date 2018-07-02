@@ -141,11 +141,47 @@
       <height>251</height>
      </rect>
     </property>
+    <property name="acceptDrops">
+     <bool>false</bool>
+    </property>
     <property name="verticalScrollBarPolicy">
      <enum>Qt::ScrollBarAsNeeded</enum>
     </property>
     <property name="tabChangesFocus">
      <bool>true</bool>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QTreeView" name="localTree">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>310</y>
+      <width>461</width>
+      <height>181</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QTreeView" name="remoteTree">
+    <property name="geometry">
+     <rect>
+      <x>490</x>
+      <y>310</y>
+      <width>511</width>
+      <height>181</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QTreeView" name="downlistTree">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>500</y>
+      <width>1001</width>
+      <height>201</height>
+     </rect>
     </property>
    </widget>
   </widget>

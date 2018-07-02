@@ -50,6 +50,7 @@ private:
 
 	int controlPort{ 210 };
 	int activePort{ 200 };
+	//string serverIP{ "192.168.219.145" };
 	string serverIP{ "0.0.0.0" };
 
 	bool setOrNot = false;
