@@ -1,6 +1,6 @@
 #include "Utils.h"
 
-void extractFileName(QStringList& input, QString& output){
+void extractFileName(QStringList& input, QString& output)/*used in GUI, extract filename from DIR list*/{
 
 	for (int j = 3; j < input.length(); j++) {
 		if (j == input.length()) break;

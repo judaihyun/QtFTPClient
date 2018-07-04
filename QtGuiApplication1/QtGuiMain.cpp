@@ -15,6 +15,8 @@ QtGuiMain::QtGuiMain(QWidget *parent)
 	ui.portEdit->setText("210");
 
 
+
+
 	connect(ui.conBtn, SIGNAL(clicked()), this, SLOT(pasvConSlot()));  /*  connect to passive mode */
 
 	connect(&workerThread, &QThread::finished, []() {std::cout << "workerThread finished\n"; });
@@ -160,7 +162,7 @@ void QtGuiMain::downloadClickedSlot/*SLOT*/(){
 	toDownFiles.push_back(new QStandardItem(qsTemp[SIZE_COL]));
 	downlistModel->appendRow(toDownFiles);
 
-	emit sendCommand("RETR " + qsTemp[NAME_COL]);
+	emit sendCommand("RETR " + qsTemp[PATH_COL]);
 }
 
 void QtGuiMain::clickRow/*SLOT*/(const QModelIndex& index) {
@@ -252,8 +254,11 @@ void QtGuiMain::pasvConSlot()/*SLOT*/ {
 	arg.controlPort = 210;
 
 
+	
+
 	FtpClient client(&arg, this);
-	client.setPath("f:");
+	client.setRemotePath("f:"); //remote
+	client.setLocalPath("e:"); //local
 	client.moveToThread(&workerThread);
 	connect(&workerThread, SIGNAL(started()), &client, SLOT(starter()));
 	workerThread.start();
@@ -263,6 +268,7 @@ void QtGuiMain::pasvConSlot()/*SLOT*/ {
 	ui.actionDisconnect->setEnabled(true);
 	ui.conBtn->setEnabled(false);
 
+	
 	int retcode = loop.exec();
 	cout << "main loop exit()" << retcode << endl;
 

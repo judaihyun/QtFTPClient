@@ -27,7 +27,8 @@ struct passToThread {
 	int activePort{ 0 };
 	int controlPort{ 0 };
 	string serverIP{ "" };
-	string rootPath;
+	string rootPath{ "" };
+	string localRoot{ "" };
 	int id{ 0 };
 };
 enum logLevel {

@@ -20,7 +20,7 @@ signals :
 	void printDirCwd(const QString&);
 	void recurDirList(const QString&);
 protected slots :
-void commandDetect(const QString& input);
+	void commandDetect(const QString& input);
 void exitProcedure() {
 	loop.exit();
 }
@@ -37,6 +37,7 @@ public:
 		controlSock = (SOCKET)argList.sock;
 		defaultPort = argList.controlPort;
 		serverIP = argList.serverIP;
+		localRoot = argList.localRoot;
 	}
 	~ControlHandler() {
 		emit printLog(LOG_INFO, "ControlHandler exit");
@@ -48,6 +49,8 @@ public:
 	int getFileList();
 	void setFileName(string n) { fileName = n; };
 	string getFileName() { return fileName; }
+	void setFilePath(string n) { filePath = n; };
+	string getFilePath() { return filePath; }
 	__int64 openFile();
 	void createPASVSock(string); // passive
 	void createPORTSock(string); // active
@@ -70,12 +73,14 @@ public:
 	void setActivePort(int ap) { activePort = ap; }
 	int getActivePort() { return activePort; };
 	string getServerIp() { return serverIP; }
+	string getLocalRoot() { return localRoot; }
+	void setLocalRoot(const QString n) { localRoot = n.toStdString(); }
 private:
 	QObject * parent;
 	QEventLoop loop;
-	bool requestedStop = false;
 	passToThread argList;
 	const string rootPath = argList.rootPath;  //set by main
+	string localRoot{ "" };
 	int activePort{ 0 };
 	int defaultPort{ 0 };
 	string serverIP{ "0.0.0.0" };
@@ -83,13 +88,14 @@ private:
 	string SP{ " " }; //space
 	string CRLF{ "\r\n" };
 	string fileName{ "" };
+	string filePath{ "" };
 	char requestBuf[COM_BUFSIZE];
 	__int64 sizeRETR{ 0 };
 	bool isActive = false;
 	char responseBuf[COM_BUFSIZE]{ '\0' };
 	char resBuf[RES_BUFSIZE + 1]{ "220 FTP Test Serivce. \r\n" };
 	char dirList[DIR_BUFSIZE + 1];
-	char buf[MAX_FILE_SIZE];
+	char buf[MTU_FILE];
 
 	SOCKET controlSock = INVALID_SOCKET;
 	SOCKET dataConnectSock = INVALID_SOCKET; // for PASV
@@ -100,6 +106,7 @@ private:
 	SOCKADDR_IN dataClient_addr; // for PASV
 	SOCKADDR_IN dataCon_addr;    // for Active mode
 
+	ofstream *ofs;
 	ifstream *ifs;
 	ErrorHandler *errorHandle;
 

@@ -60,6 +60,7 @@ int ControlHandler::requestHandler() {
 	vector<string> argv;
 
 	commandSeparator(argv, requestBuf);
+	
 	cout << "request commands : " << argv[0] << " " << argv[1] << endl;
 
 	
@@ -120,7 +121,7 @@ int ControlHandler::requestHandler() {
 		retval = recv(dataConnectSock, dirList, DIR_BUFSIZE, 0);
 		if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
 		dirList[retval] = '\0';
-		cout << "dir LIst : " << dirList;
+		
 		emit printDirCwd(QString::fromLocal8Bit(dirList));
 	}
 	else if (argv[0] == "BULK") {
@@ -133,20 +134,19 @@ int ControlHandler::requestHandler() {
 		responseHandler();
 	}
 	else if (argv[0] == "RETR") {
+		string temp{ "" };
 		sendMsg("PASV");
 		controlRecv();
 		responseHandler();
 
-		sendMsg("RETR " + argv[1]);
+		
+		temp = argv[1].substr(argv[1].rfind("/") + 1, argv[1].size());
+		setFileName(temp);
+		setFilePath(argv[1]);
+		sendMsg("RETR " + getFileName());
+
 		controlRecv();
 		responseHandler();
-
-		
-		retval = recv(dataConnectSock, buf, MAX_FILE_SIZE, 0);
-		if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
-		buf[retval] = '\0';
-
-
 	
 		controlRecv();
 		responseHandler();
@@ -159,67 +159,60 @@ int ControlHandler::requestHandler() {
 }
 
 int ControlHandler::pasvRecvFile() {
-	emit printLog(LOG_DEBUG, "[FUNC] pasvSendFile()");
+	emit printLog(LOG_DEBUG, "[FUNC] pasvRecvFile()");
 	int retval = 0;
 	int addrlen{ 0 };
 	int size = 4096;
 	__int64 fileSize = 0;
 
-	addrlen = sizeof(dataClient_addr);
-	clientDataSock = accept(dataConnectSock, (SOCKADDR*)&dataClient_addr, &addrlen);
-	if (clientDataSock == INVALID_SOCKET) {
-		errorHandle->err_display("data-pasv accept()");
-		closesocket(dataConnectSock);
-	}
-	emit printLog(LOG_INFO, variadicToQstring("[PASV.dataChannel - client] : IP = %s, Port = %d\n",
-		inet_ntoa(dataClient_addr.sin_addr), ntohs(dataClient_addr.sin_port)));
+
+	emit printLog(LOG_INFO, variadicToQstring("[PASV.dataChannel - server] : IP = %s, Port = %d\n",
+		inet_ntoa(dataServerAddr.sin_addr), ntohs(dataServerAddr.sin_port)));
 
 	fileSize = openFile();
 
-	char buf[4096];
-	while (!ifs->eof()) {
-
-		if (!ifs->read(buf, size)) {
-			size = (int)ifs->gcount();
-		}
-		retval = send(clientDataSock, buf, size, 0);
+	while (1) {
+		retval = recv(dataConnectSock, buf, size, 0);
 		if (retval == SOCKET_ERROR) {
 			errorHandle->err_display("send()");
 			return -1;
 		}
+		if (retval == 0) break;
+		
+		ofs->write(buf, retval);
+		
 	}
-	closesocket(clientDataSock);
-	ifs->close();
-	sendMsg("226 Transfer complete." + CRLF);
+
+	ofs->close();
+	closesocket(dataConnectSock);
 
 	return 1;
 }
+
+
 
 __int64 ControlHandler::openFile() {
 	emit printLog(LOG_TRACE, variadicToQstring("openFile(), fileName : %s ", getFileName().c_str()));
 	__int64 startPos{ 0 };
 	__int64 fileSize{ 0 };
-	string targetFile = getRootPath();
-	targetFile += getCurPath() + getFileName();
+	string targetFile = getLocalRoot();
+	targetFile += "/" + getFileName();
+	
 
-	ifs = new ifstream;
-	ifs->open(targetFile, std::ios_base::binary);
+	ofs = new ofstream;
+	ofs->open(targetFile, std::ios_base::binary);
 	if (getRetrSize() > 0) {  // for REST
 		startPos = getRetrSize();
 		ifs->seekg(startPos, ios::beg);
 		return fileSize;
 	}
 
-	if (!ifs) {
+	if (!ofs) {
 		sendMsg("550 file open failed" + CRLF);
 		errorHandle->err_quit("file open failed");
 		return -1;
 	}
-	ifs->seekg(0, ios::end);
-	fileSize = ifs->tellg();
-	ifs->seekg(0, ios::beg);
-
-	sendMsg("125 Data connection already open; Transfer starting." + CRLF);
+	
 	return fileSize;
 }
 
@@ -234,6 +227,7 @@ int ControlHandler::responseHandler() {
 		emit printLog(LOG_INFO, variadicToQstring("%s %s", argv[0].c_str(), argv[1].c_str()));
 	}
 	else if (argv[0] == "227") {    // PASV response
+		emit printLog(LOG_INFO, variadicToQstring("%s %s", argv[0].c_str(), argv[1].c_str()));
 		createPASVSock(argv[1]);
 	}
 	else if (argv[0] == "257") { // directory commands
@@ -252,6 +246,7 @@ int ControlHandler::responseHandler() {
 	}
 	else if (argv[0] == "125"){
 		emit printLog(LOG_INFO, variadicToQstring("%s %s", argv[0].c_str(), argv[1].c_str()));
+		pasvRecvFile();
 	}
 	else {
 		emit printLog(LOG_INFO, variadicToQstring("Not defined response %s", argv[1].c_str()));
@@ -287,7 +282,9 @@ void ControlHandler::createPASVSock(string argv) {
 	retval = ::connect(dataConnectSock, (SOCKADDR*)&dataServerAddr, sizeof(dataServerAddr));
 	if (retval == SOCKET_ERROR) emit printLog(LOG_FETAL, "connect() error");
 
-	emit printLog(LOG_INFO, "PASV Data Channel Open()");
+
+
+	emit printLog(LOG_TRACE, "PASV Data Channel Open()");
 
 	isActive = false;
 }
@@ -306,7 +303,7 @@ int ControlHandler::portSendFile() {
 		emit printLog(LOG_FETAL, "open error()");
 		return -1;
 	}
-
+	/*
 	char buf[4096];
 	while (!ifs->eof()) {
 
@@ -319,6 +316,7 @@ int ControlHandler::portSendFile() {
 			return -1;
 		}
 	}
+	*/
 
 
 	ifs->close();
@@ -460,6 +458,7 @@ void ControlHandler::portSendList() {
 }
 
 
+
 int ControlHandler::getFileList() {   // for LIST command
 	string targetPath = getRootPath();
 	targetPath += getCurPath();
@@ -543,3 +542,4 @@ void ControlHandler::pasvInitProcess() {
 	responseHandler();
 
 }
+

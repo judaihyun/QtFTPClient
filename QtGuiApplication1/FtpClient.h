@@ -26,12 +26,17 @@ public:
 		if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) exit(1);
 	};
 
-	void setPath(string r) {
+	void setRemotePath(string r) {
 		if (!r.empty()) {
 			argList.rootPath = r;
 			setOrNot = true;
 		}
 	};
+	void setLocalPath(string r) {
+		if (!r.empty()) {
+			argList.localRoot = r;
+		}
+	}
 
 	void setActivePort(int ap) { activePort = ap; }
 	int getActivePort() { return activePort; }
