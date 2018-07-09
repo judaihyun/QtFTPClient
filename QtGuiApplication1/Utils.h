@@ -3,19 +3,24 @@
 #include <sstream>
 #include <QString>
 #include <qstringlist.h>
+#include <qtextcodec.h>
 #define PRINT_BUFSIZE 10000
 
+QString fromUniString(QString str);
 
+QByteArray toUniString(QString str);
+
+bool checkFileExists(std::string fileName);
 
 void replaceString(std::string & strCallId, const char * pszBefore, const char * pszAfter);
 
 void portDecoder(std::string &source, std::string& ip, int &port);
 
-std::string portEncoder(int, string);
+std::string portEncoder(int, std::string);
 
-void commandSeparator(std::vector<string> &, char *target);
+void commandSeparator(std::vector<std::string> &, char *target);
 
-string extractPath(string& input);
+string extractPath(std::string& input);
 
 void printPerms(fs::perms p);
 

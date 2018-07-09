@@ -38,6 +38,7 @@ public:
     QAction *actionCancel;
     QAction *actionReconnet;
     QAction *actionDisconnect;
+    QAction *actSetting;
     QWidget *centralWidget;
     QListWidget *listWidget_2;
     QLineEdit *hostEdit;
@@ -56,6 +57,7 @@ public:
     QMenuBar *menuBar;
     QMenu *menu_F;
     QMenu *menu_V;
+    QMenu *menu_E;
     QStatusBar *statusBar;
     QToolBar *toolBar;
 
@@ -98,6 +100,8 @@ public:
         QIcon icon4;
         icon4.addFile(QStringLiteral(":/QtGuiApplication1/I:/Skins For GUI Programming/Icon/disconnect.png"), QSize(), QIcon::Normal, QIcon::Off);
         actionDisconnect->setIcon(icon4);
+        actSetting = new QAction(QtGuiApplication1Class);
+        actSetting->setObjectName(QStringLiteral("actSetting"));
         centralWidget = new QWidget(QtGuiApplication1Class);
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
         listWidget_2 = new QListWidget(centralWidget);
@@ -155,6 +159,8 @@ public:
         menu_F->setObjectName(QStringLiteral("menu_F"));
         menu_V = new QMenu(menuBar);
         menu_V->setObjectName(QStringLiteral("menu_V"));
+        menu_E = new QMenu(menuBar);
+        menu_E->setObjectName(QStringLiteral("menu_E"));
         QtGuiApplication1Class->setMenuBar(menuBar);
         statusBar = new QStatusBar(QtGuiApplication1Class);
         statusBar->setObjectName(QStringLiteral("statusBar"));
@@ -167,11 +173,13 @@ public:
         QtGuiApplication1Class->addToolBar(Qt::TopToolBarArea, toolBar);
 
         menuBar->addAction(menu_F->menuAction());
+        menuBar->addAction(menu_E->menuAction());
         menuBar->addAction(menu_V->menuAction());
         menu_F->addAction(SiteManage);
         menu_F->addSeparator();
         menu_F->addAction(actionExit);
         menu_V->addAction(actionDebug_Mode);
+        menu_E->addAction(actSetting);
         toolBar->addAction(SiteManage);
         toolBar->addSeparator();
         toolBar->addAction(actionRefresh);
@@ -194,6 +202,7 @@ public:
         actionCancel->setText(QApplication::translate("QtGuiApplication1Class", "cancel", nullptr));
         actionReconnet->setText(QApplication::translate("QtGuiApplication1Class", "reconnect", nullptr));
         actionDisconnect->setText(QApplication::translate("QtGuiApplication1Class", "disconnect", nullptr));
+        actSetting->setText(QApplication::translate("QtGuiApplication1Class", "Setting(S)", nullptr));
         label->setText(QApplication::translate("QtGuiApplication1Class", "Host", nullptr));
         label_2->setText(QApplication::translate("QtGuiApplication1Class", "User", nullptr));
         label_3->setText(QApplication::translate("QtGuiApplication1Class", "Pass", nullptr));
@@ -201,6 +210,7 @@ public:
         conBtn->setText(QApplication::translate("QtGuiApplication1Class", "Connect", nullptr));
         menu_F->setTitle(QApplication::translate("QtGuiApplication1Class", "\355\214\214\354\235\274(F)", nullptr));
         menu_V->setTitle(QApplication::translate("QtGuiApplication1Class", "\353\263\264\352\270\260(V)", nullptr));
+        menu_E->setTitle(QApplication::translate("QtGuiApplication1Class", "\355\216\270\354\247\221(E)", nullptr));
         toolBar->setWindowTitle(QApplication::translate("QtGuiApplication1Class", "toolBar", nullptr));
     } // retranslateUi
 

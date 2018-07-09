@@ -208,7 +208,14 @@
     </property>
     <addaction name="actionDebug_Mode"/>
    </widget>
+   <widget class="QMenu" name="menu_E">
+    <property name="title">
+     <string>편집(E)</string>
+    </property>
+    <addaction name="actSetting"/>
+   </widget>
    <addaction name="menu_F"/>
+   <addaction name="menu_E"/>
    <addaction name="menu_V"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
@@ -309,6 +316,11 @@
    </property>
    <property name="text">
     <string>disconnect</string>
+   </property>
+  </action>
+  <action name="actSetting">
+   <property name="text">
+    <string>Setting(S)</string>
    </property>
   </action>
  </widget>

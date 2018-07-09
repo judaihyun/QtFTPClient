@@ -45,23 +45,32 @@
     <ClCompile Include="ErrorHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="QtGuiMain.cpp">
+    <ClCompile Include="FtpGui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FtpSettingWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="QtGuiApplication1.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
     <QtMoc Include="FtpClient.h">
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="ControlHandler.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="FtpGui.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="FtpSettingWidget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="QtGuiApplication1.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="FtpSettingWidget.ui">
       <Filter>Form Files</Filter>
     </QtUic>
   </ItemGroup>
@@ -80,5 +89,8 @@
     <ClInclude Include="ErrorHandler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
 </Project>

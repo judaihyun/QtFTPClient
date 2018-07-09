@@ -5,6 +5,7 @@
 #include <qobject.h>
 #include <qeventloop.h>
 #include <qtextstream.h>
+#include <qdebug>
 #define COM_BUFSIZE 1024  // command for request
 #define RES_BUFSIZE 1024  // command for response
 #define DIR_BUFSIZE 1000000
@@ -18,7 +19,10 @@ class ControlHandler : public QObject {
 signals :
 	void printLog(logLevel, const QString&);
 	void printDirCwd(const QString&);
-	void recurDirList(const QString&);
+	void recurDirList(const QString&, const QString);
+	void downloadCompleted();
+	void downloadResume();
+	void nextToDownload();
 protected slots :
 	void commandDetect(const QString& input);
 void exitProcedure() {
@@ -29,7 +33,9 @@ public:
 		parent = p;
 		connect(parent, SIGNAL(sendCommand(const QString&)), this, SLOT(commandDetect(const QString&))); // received command from UI
 		connect(parent, SIGNAL(exitCommand()), this, SLOT(exitProcedure()));  // QEventLoop Exit
-		connect(this, SIGNAL(recurDirList(const QString&)), parent, SLOT(recurDirList(const QString&)));
+		connect(this, SIGNAL(nextToDownload()), parent, SLOT(nextToDownload()));
+		connect(this, SIGNAL(downloadCompleted()), parent, SLOT(downloadCompleted()));
+		connect(this, SIGNAL(recurDirList(const QString&, const QString)), parent, SLOT(recurDirList(const QString&, const QString)));
 		connect(this, SIGNAL(printDirCwd(const QString&)), parent, SLOT(printDirCwd(const QString&)));
 		connect(this, SIGNAL(printLog(logLevel, const QString&)), parent, SLOT(ftpLog(logLevel, QString)));  // Log
 	//	connect(this, SIGNAL(printDir(const QString&)), parent, SLOT(printDirGui(QString)));  // Log
@@ -78,6 +84,7 @@ public:
 private:
 	QObject * parent;
 	QEventLoop loop;
+	QEventLoop retrLoop;
 	passToThread argList;
 	const string rootPath = argList.rootPath;  //set by main
 	string localRoot{ "" };

@@ -1,6 +1,7 @@
 #pragma once
 #include <QtWidgets/QMainWindow>
 #include "ui_QtGuiApplication1.h"
+#include "FtpSettingWidget.h"
 #include "WinSockHeader.h"
 #include "FtpClient.h"
 #include "Utils.h"
@@ -10,6 +11,7 @@
 #include <qfilesystemmodel.h>
 #include <qstandarditemmodel.h>
 #include <qstringlistmodel.h>
+#include "ErrorHandler.h"
 #define YEAR 0
 #define TIME 1
 #define NAME_COL 0
@@ -21,7 +23,7 @@ namespace Ui {
 	class QtGuiMain;
 }
 
-class QtGuiMain : public QMainWindow
+class FtpGui : public QMainWindow
 {
 	Q_OBJECT
 
@@ -30,26 +32,29 @@ private:
 	QThread workerThread;
 	QString localPath{ "e:" };
 	QString remotePath{ "f:" };
+	QString remoteCurPath{ "" };
 	QEventLoop loop;
 	QModelIndex selectedIndex;
-	QStandardItemModel *remoteModel;
-	QStandardItemModel *downlistModel;
-	QStandardItem *rootItem;
-	QStandardItem *tempParent;
+	QStandardItemModel *remoteModel = nullptr;
+	QStandardItemModel *downlistModel = nullptr;
+	QStandardItem *rootItem = nullptr;
+	QStandardItem *tempParent = nullptr;
 	QString colPath;
-	QAction* uninstallAction;
+	QAction *uninstallAction = nullptr;
 	const QPoint *point;
+	ErrorHandler *errorHandler = nullptr;
 protected:
 	Ui::QtGuiApplication1Class ui;
+	FtpSettingWidget widgetUi;
 	logLevel lev;
 public:
-	QtGuiMain(QWidget *parent = Q_NULLPTR);
-	void displayLog(const QString& input) { ui.textEdit->append(input); }
+	FtpGui(QWidget *parent = Q_NULLPTR);
+	void displayLog(const QString& input, QColor color);
 	void initRemoteDir();
 	void initToDownList();
 	void initLocalList();
 	
-	~QtGuiMain() {
+	~FtpGui() {
 		delete downlistModel;
 		delete rootItem;
 		delete tempParent;
@@ -57,12 +62,17 @@ public:
 		delete remoteModel;
 	}
 
+	void recurDownload();
 signals:
 	void sendCommand(const QString&);
 	void exitCommand();
 	void customContextMenuRequestedDownTree(const QPoint&);
 
 public slots:
+	void setLocalPath(const QString path) { localPath = path; }
+	void setLogLevel(logLevel l) { lev = l; }
+	void popupSetting() { widgetUi.show(); }
+	void connectFailed();
 	void ftpLog(logLevel, const QString& input);
 	void actRefresh();
 	void printDirCwd(const QString& dir);
@@ -73,7 +83,9 @@ public slots:
 	void onCustomContextMenuRequested(const QPoint& point);
 	void onCustomContextMenuRequestedDownTree(const QPoint& point);
 	void downloadClickedSlot();
-	void recurDirList(const QString& dir);
+	void recurDirList(const QString& dir, const QString);
+	void downloadCompleted();
+	void nextToDownload() { qDebug() << "recurLoop.exit()"; /*recurLoop.exit();*/ };
 };
 
 

@@ -1,6 +1,33 @@
 #include "Utils.h"
 
-void extractFileName(QStringList& input, QString& output)/*used in GUI, extract filename from DIR list*/{
+
+QByteArray toUniString(QString str)
+
+{
+	QTextCodec * codec = QTextCodec::codecForLocale();
+	QByteArray encodingString = codec->fromUnicode(str);
+	
+	return encodingString;
+}
+
+QString fromUniString(QString str)
+{
+	QTextCodec * codec = QTextCodec::codecForName("EUC_KR");
+	QString encodingString = codec->toUnicode(str.toLocal8Bit());
+	//QString encodingString = codec->toUnicode(nullptr);
+	
+	
+	
+	return encodingString;
+}
+
+bool checkFileExists(std::string fileName) {
+	ifstream ifsCheck{ fileName };
+	return ifsCheck.good();
+}
+
+
+void extractFileName(QStringList& input, QString& output)/*used in GUI, extract filename from DIR list(merge space)*/{
 
 	for (int j = 3; j < input.length(); j++) {
 		if (j == input.length()) break;

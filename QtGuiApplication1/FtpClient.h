@@ -4,25 +4,28 @@
 #include "ControlHandler.h"
 #include "ErrorHandler.h"
 #include <qthread.h>
-
 #include "Utils.h"
 
 class FtpClient : public QObject{
 	Q_OBJECT
 signals :
 	void printLog(logLevel, const QString&);
+	void exitCommand();
 public slots:
 	void starter();
 public:
 	~FtpClient(){
 		emit printLog(LOG_DEBUG, "FtpClient() Destructed");
-		delete controlHandler;
+		if(controlHandler != nullptr) delete controlHandler;
+		cout << "~FtpClient\n";
 		closesocket(controlSock);
 	};
 	FtpClient(void* arg, QObject* p) : argList{ *((passToThread*)arg) } {
 		parent = p;
 		serverIP = argList.serverIP;
 		controlPort = argList.controlPort;
+		connect(this, SIGNAL(exitCommand()), parent, SLOT(connectFailed())); 
+		connect(this, SIGNAL(printLog(logLevel, const QString&)), parent, SLOT(ftpLog(logLevel, QString)));  
 		if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) exit(1);
 	};
 
@@ -47,8 +50,9 @@ public:
 	void connecting();
 	//void connecting(SOCKET&);
 private:
-	ControlHandler * controlHandler;
+	ControlHandler * controlHandler = nullptr;
 	QObject * parent;
+
 	WSADATA wsa;
 	SOCKET controlSock = INVALID_SOCKET;
 	SOCKADDR_IN controlAddr;

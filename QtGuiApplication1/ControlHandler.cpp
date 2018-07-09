@@ -4,18 +4,6 @@ namespace qcout {
 	QTextStream cout(stdout, QIODevice::WriteOnly);
 }
 
-int ControlHandler::sendMsg(const string msg) {
-	emit printLog(LOG_DEBUG, msg.c_str());
-	int retval = send(controlSock, msg.c_str(), msg.length(), 0);
-	if (retval == SOCKET_ERROR) {
-		errorHandle->err_display("sendMsg()");
-
-	}
-	
-	return retval;
-}
-
-
 void ControlHandler::controlRecv() {
 	int retval{ 0 };
 	responseBuf[0] = '\0';
@@ -29,10 +17,28 @@ void ControlHandler::controlRecv() {
 
 }
 
-void ControlHandler::commandDetect(const QString& input) {
-	emit printLog(LOG_DEBUG, "input commands " + input);
+int ControlHandler::sendMsg(const string msg) {
+	emit printLog(LOG_DEBUG, variadicToQstring("SENDMSG: %s", msg.c_str()));
+	int retval = send(controlSock, msg.c_str(), msg.length(), 0);
+	if (retval == SOCKET_ERROR) {
+		errorHandle->err_display("sendMsg()");
+
+	}
 	
-	strcpy_s(requestBuf, sizeof(requestBuf), input.left(input.length() - 1).toStdString().c_str());
+	return retval;
+}
+
+
+
+void ControlHandler::commandDetect(const QString& input) {
+	QByteArray commandMsg = toUniString(input);
+	
+	
+	emit printLog(LOG_TRACE, "input commands " + commandMsg);
+	
+	
+	//strcpy_s(requestBuf, sizeof(requestBuf), commandMsg);
+	strcpy_s(requestBuf, sizeof(requestBuf), commandMsg.left(commandMsg.length() - 1).toStdString().c_str());
 
 	requestHandler();
 };
@@ -41,7 +47,7 @@ int ControlHandler::controlActivate() {
 	emit printLog(LOG_INFO, variadicToQstring("%d, ControlActivated", getConId()));
 	int addrlen{ 0 };
 	int retval{ 0 };
-	cout << "controlActive" << endl;
+	
 
 	// if PASV or PORT 해야함
 
@@ -82,7 +88,7 @@ int ControlHandler::requestHandler() {
 		sendMsg("CWD " + argv[1] + CRLF);
 		controlRecv();
 		responseHandler();
-
+		
 		sendMsg("PWD");
 		controlRecv();
 		responseHandler();
@@ -99,12 +105,14 @@ int ControlHandler::requestHandler() {
 		if (retval == SOCKET_ERROR) errorHandle->err_display("recv()");
 		dirList[retval] = '\0';
 
-		emit recurDirList(QString::fromLocal8Bit(dirList));
+		emit recurDirList(QString::fromLocal8Bit(dirList), QString::fromStdString(getCurPath()));
 	}
 	else if (argv[0] == "CWD") {
 		sendMsg("CWD " + argv[1] + CRLF);
 		controlRecv();
 		responseHandler();
+
+		setFilePath(argv[1]);
 
 		sendMsg("PWD");
 		controlRecv();
@@ -135,14 +143,18 @@ int ControlHandler::requestHandler() {
 	}
 	else if (argv[0] == "RETR") {
 		string temp{ "" };
+
+		temp = argv[1].substr(argv[1].rfind("/") + 1, argv[1].size());
+		setFileName(temp);
+		
+
+		if (openFile() < 0) {
+			return -1;
+		}
 		sendMsg("PASV");
 		controlRecv();
 		responseHandler();
 
-		
-		temp = argv[1].substr(argv[1].rfind("/") + 1, argv[1].size());
-		setFileName(temp);
-		setFilePath(argv[1]);
 		sendMsg("RETR " + getFileName());
 
 		controlRecv();
@@ -169,8 +181,8 @@ int ControlHandler::pasvRecvFile() {
 	emit printLog(LOG_INFO, variadicToQstring("[PASV.dataChannel - server] : IP = %s, Port = %d\n",
 		inet_ntoa(dataServerAddr.sin_addr), ntohs(dataServerAddr.sin_port)));
 
-	fileSize = openFile();
-
+	int recvSize{ 0 };
+	
 	while (1) {
 		retval = recv(dataConnectSock, buf, size, 0);
 		if (retval == SOCKET_ERROR) {
@@ -180,11 +192,16 @@ int ControlHandler::pasvRecvFile() {
 		if (retval == 0) break;
 		
 		ofs->write(buf, retval);
+	
 		
 	}
+	
 
 	ofs->close();
 	closesocket(dataConnectSock);
+	emit downloadCompleted();
+	emit nextToDownload();
+	
 
 	return 1;
 }
@@ -192,25 +209,39 @@ int ControlHandler::pasvRecvFile() {
 
 
 __int64 ControlHandler::openFile() {
-	emit printLog(LOG_TRACE, variadicToQstring("openFile(), fileName : %s ", getFileName().c_str()));
+	emit printLog(LOG_TRACE, variadicToQstring("openFile(), fileName : %s ", getFileName().c_str())); // 한글깨짐 정상
 	__int64 startPos{ 0 };
 	__int64 fileSize{ 0 };
 	string targetFile = getLocalRoot();
-	targetFile += "/" + getFileName();
+	targetFile += getFilePath() + "/" + getFileName();
 	
+	cout << "targetFile[" << targetFile << "]" << endl;
+	
+	fs::create_directories(getLocalRoot() + getFilePath());
 
-	ofs = new ofstream;
-	ofs->open(targetFile, std::ios_base::binary);
-	if (getRetrSize() > 0) {  // for REST
-		startPos = getRetrSize();
-		ifs->seekg(startPos, ios::beg);
-		return fileSize;
-	}
 
-	if (!ofs) {
-		sendMsg("550 file open failed" + CRLF);
-		errorHandle->err_quit("file open failed");
+	if (checkFileExists(targetFile)) {
+		emit printLog(LOG_INFO, variadicToQstring("%s is already exists.", getFileName().c_str()));
+		emit downloadResume(); //client 처리 안함
+		emit printLog(LOG_TRACE, "wait waitMessage.exec()");
+		
+		if (getRetrSize() > 0) {  // for REST
+			startPos = getRetrSize();
+			ifs->seekg(startPos, ios::beg);
+			return fileSize;
+		}
 		return -1;
+	}
+	else {
+		ofs = new ofstream;
+		ofs->open(targetFile, std::ios_base::binary);
+
+
+		if (!ofs) {
+			sendMsg("550 file open failed" + CRLF);
+			errorHandle->err_quit("file open failed");
+			return -1;
+		}
 	}
 	
 	return fileSize;
@@ -232,7 +263,7 @@ int ControlHandler::responseHandler() {
 	}
 	else if (argv[0] == "257") { // directory commands
 		string path = extractPath(argv[1]);
-		//movePath(path);
+		movePath(argv[1]);
 		emit printLog(LOG_TRACE, variadicToQstring("Current Path : %s", getCurPath().c_str()));
 	}
 	else if (argv[0] == "LIST") {

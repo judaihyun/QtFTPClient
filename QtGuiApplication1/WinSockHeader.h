@@ -31,6 +31,6 @@ struct passToThread {
 	string localRoot{ "" };
 	int id{ 0 };
 };
-enum logLevel {
+enum logLevel{
 	LOG_FETAL = 1, LOG_ERROR, LOG_WARN, LOG_INFO, LOG_DEBUG, LOG_TRACE
 };

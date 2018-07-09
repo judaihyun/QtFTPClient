@@ -1,35 +1,37 @@
-#include "QtGuiApplication1.h"
+#include "FtpGui.h"
 
-QtGuiMain::QtGuiMain(QWidget *parent)
+FtpGui::FtpGui(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
+	this->setWindowTitle("Client");
 	qRegisterMetaType<logLevel>("logLevel");
 
 	initLocalList();
 	initToDownList();
 
-
+	
 	ui.hostEdit->setText("127.0.0.1");
 	//ui.hostEdit->setText("192.168.219.145");
 	ui.portEdit->setText("210");
 
 
+	connect(&widgetUi, SIGNAL(setLogLevel(logLevel)), this, SLOT(setLogLevel(logLevel)));
 
-
+	connect(ui.actSetting, SIGNAL(triggered()), this, SLOT(popupSetting()));
 	connect(ui.conBtn, SIGNAL(clicked()), this, SLOT(pasvConSlot()));  /*  connect to passive mode */
 
 	connect(&workerThread, &QThread::finished, []() {std::cout << "workerThread finished\n"; });
 	connect(&workerThread, &QThread::started, []() {std::cout << "workerThread started\n"; });
 
-	connect(ui.actionRefresh, &QAction::triggered, this, &QtGuiMain::actRefresh);
-	connect(ui.actionDisconnect, &QAction::triggered, this, &QtGuiMain::actDiscon);
+	connect(ui.actionRefresh, &QAction::triggered, this, &FtpGui::actRefresh);
+	connect(ui.actionDisconnect, &QAction::triggered, this, &FtpGui::actDiscon);
 
 	connect(ui.remoteTree, SIGNAL(clicked(const QModelIndex&)), this, SLOT(clickRow(const QModelIndex&)));
 	
 }
 
-void QtGuiMain::initLocalList() {
+void FtpGui::initLocalList() {
 	QFileSystemModel *model = new QFileSystemModel(this);
 	model->setFilter(QDir::NoDotAndDotDot |
 		QDir::AllDirs | QDir::Files);
@@ -51,7 +53,7 @@ void QtGuiMain::initLocalList() {
 }
 
 
-void QtGuiMain::initRemoteDir() {
+void FtpGui::initRemoteDir() {
 	remoteModel = new QStandardItemModel(this);
 	remoteModel->setSortRole(Qt::DecorationRole);
 	remoteModel->setColumnCount(4);
@@ -90,7 +92,7 @@ void QtGuiMain::initRemoteDir() {
 }
 
 
-void QtGuiMain::initToDownList() {
+void FtpGui::initToDownList() {
 	downlistModel = new QStandardItemModel(this);
 	downlistModel->setColumnCount(3);
 
@@ -110,13 +112,12 @@ void QtGuiMain::initToDownList() {
 
 }
 
-void QtGuiMain::recurDirList/*SLOT*/(const QString& dir) { /*  to download list  */
+void FtpGui::recurDirList/*SLOT*/(const QString& dir, const QString pwd) { /*  to download list  */
 	ftpLog(LOG_TRACE, "--- recurDirList() ---");
 	int itemCount{ 0 };
 	QStringList items = dir.split("\r\n");
 	itemCount = dir.split("\r\n").length() - 1;
-
-
+	qDebug() << pwd;
 	for (int i = 0; i < itemCount; ++i) {
 		QString fileName{ "" };
 		QList<QStandardItem*> toDownFiles;
@@ -124,29 +125,48 @@ void QtGuiMain::recurDirList/*SLOT*/(const QString& dir) { /*  to download list 
 		extractFileName(row, fileName);
 
 		if (row[TYPE_COL] == "<DIR>") {
-			emit sendCommand("CWDLIST " + fileName);
-		//	qDebug() << "@@ : " << row[TYPE_COL];
+			remoteCurPath += fileName.replace(" ","") + "/";
+			emit sendCommand("CWDLIST " + remoteCurPath);
+	
 		}
 		else {
-			toDownFiles.push_back(new QStandardItem(colPath + fileName));  //  name
-			toDownFiles.push_back(new QStandardItem("<----"));  //  name
-			toDownFiles.push_back(new QStandardItem(remotePath + fileName));  //  name
-			toDownFiles.push_back(new QStandardItem(sizeFormat(row[2].toLongLong())));  // Size 
+			toDownFiles.push_back(new QStandardItem(localPath + pwd + fileName));  //  local
+			toDownFiles.push_back(new QStandardItem("<----"));  //  direction 
+			toDownFiles.push_back(new QStandardItem(remotePath + pwd + fileName));  //  remote
+			toDownFiles.push_back(new QStandardItem(sizeFormat(row[2].toLongLong())));  // size 
+			toDownFiles.push_back(new QStandardItem(pwd));  // path 
 			downlistModel->appendRow(toDownFiles);
 		}
 		
 	}
-
+	recurDownload();
 }
 
-void QtGuiMain::downloadClickedSlot/*SLOT*/(){
+void FtpGui::recurDownload() {
+	
+	for (int i = 0; i < downlistModel->rowCount(); ++i) {
+		QModelIndex index = downlistModel->index(i, 2);
+		QVariant fileName = index.data(Qt::DisplayRole);
+
+		QModelIndex indexPath = downlistModel->index(i, 4);
+		QVariant filePath = indexPath.data(Qt::DisplayRole);
+	
+		emit sendCommand("CWD " + filePath.toString());
+		emit sendCommand("RETR " + fileName.toString());
+	
+	}
+}
+
+void FtpGui::downloadClickedSlot/*SLOT*/(){
 	ftpLog(LOG_TRACE, "--- downloadClickedSlot() ---");
 
 	QModelIndex index = ui.remoteTree->indexAt(*point);
 	QVariant typeTemp = index.siblingAtColumn(TYPE_COL).data(Qt::DisplayRole);
 	if (typeTemp == "<DIR>") {
 		QVariant dirPath = index.siblingAtColumn(NAME_COL).data(Qt::DisplayRole);
-		emit sendCommand("CWDLIST "+dirPath.toString());
+		remoteCurPath = "/" + dirPath.toString().replace(" ","") + "/";
+		//qDebug() << "remoteCurPath : " << remoteCurPath;
+		emit sendCommand("CWDLIST " + dirPath.toString());
 		return;
 	}
 
@@ -161,11 +181,15 @@ void QtGuiMain::downloadClickedSlot/*SLOT*/(){
 	toDownFiles.push_back(new QStandardItem(remotePath + qsTemp[PATH_COL]));
 	toDownFiles.push_back(new QStandardItem(qsTemp[SIZE_COL]));
 	downlistModel->appendRow(toDownFiles);
-
+	
 	emit sendCommand("RETR " + qsTemp[PATH_COL]);
 }
 
-void QtGuiMain::clickRow/*SLOT*/(const QModelIndex& index) {
+void FtpGui::downloadCompleted/*SLOT*/() {
+	downlistModel->takeRow(0);
+}
+
+void FtpGui::clickRow/*SLOT*/(const QModelIndex& index) {
 	if (!index.isValid()) {
 		qDebug() << "clickRow is not vaild()\n";
 		return;
@@ -194,7 +218,7 @@ void QtGuiMain::clickRow/*SLOT*/(const QModelIndex& index) {
 	}
 }
 
-void QtGuiMain::printDirCwd/*SLOT*/(const QString& dir) {
+void FtpGui::printDirCwd/*SLOT*/(const QString& dir) {
 	ui.remoteTree->setExpanded(selectedIndex, true);
 	int itemCount{ 0 };
 	QStringList items = dir.split("\r\n");
@@ -229,7 +253,7 @@ void QtGuiMain::printDirCwd/*SLOT*/(const QString& dir) {
 
 }
 
-void QtGuiMain::actRefresh/*SLOT*/() {
+void FtpGui::actRefresh/*SLOT*/() {
 	if (colPath.isEmpty()) {
 		delete remoteModel;
 		initRemoteDir();
@@ -242,15 +266,17 @@ void QtGuiMain::actRefresh/*SLOT*/() {
 	}
 }
 
-void QtGuiMain::pasvConSlot()/*SLOT*/ {
-	cout << "enter pasvConSlot() " << endl;
-
+void FtpGui::pasvConSlot()/*SLOT*/ {
+	ftpLog(LOG_DEBUG, "enter pasvConSlot() ");
+	
 	initRemoteDir();
 
 	passToThread arg;
-	//arg.serverIP = ui.hostEdit->text().toStdString();
+	arg.serverIP = ui.hostEdit->text().toStdString();
 	//arg.controlPort = ui.portEdit->text().toInt();
+	/*
 	arg.serverIP = "127.0.0.1";
+	*/
 	arg.controlPort = 210;
 
 
@@ -271,10 +297,24 @@ void QtGuiMain::pasvConSlot()/*SLOT*/ {
 	
 	int retcode = loop.exec();
 	cout << "main loop exit()" << retcode << endl;
+	
 
 }
-
-void QtGuiMain::actDiscon/*SLOT*/() {
+void FtpGui::connectFailed() {
+	cout << "connectedfailed\n";
+	loop.exit();
+	workerThread.quit();
+	
+	delete remoteModel;
+	ui.actionCancel->setEnabled(false);
+	ui.actionDisconnect->setEnabled(false);
+	ui.actionRefresh->setEnabled(false);
+	ui.conBtn->setEnabled(true);
+	
+	ftpLog(LOG_INFO, "Disconnected");
+	
+}
+void FtpGui::actDiscon/*SLOT*/() {
 	ftpLog(LOG_DEBUG, "actionDisconnectButton clicked()");
 	colPath = nullptr;
 	emit exitCommand();
@@ -290,49 +330,54 @@ void QtGuiMain::actDiscon/*SLOT*/() {
 
 }
 
-void QtGuiMain::actCancel() {
+void FtpGui::actCancel() {
 
 }
 
-void QtGuiMain::ftpLog(logLevel level, const QString& qbuf) {
-	QString temp;
-	lev = logLevel::LOG_TRACE;
+void FtpGui::displayLog(const QString& input, QColor color) {
+	ui.textEdit->setTextColor(color);
+	ui.textEdit->append(input.toUtf8());
+}
+void FtpGui::ftpLog(logLevel level, const QString& qbuf) {
+	QString temp{ "" };
+	
 	if (lev >= level) {
 		switch (level) {
 		case LOG_TRACE: {   // 6
 			temp = QString("TRACE [ %1 ] %2").arg(QString::number(LOG_NUMBER++)).arg(qbuf);
-			displayLog(temp);
+			displayLog(temp, QColor(0,0,0));
 			break;
 		}
 		case LOG_DEBUG: {   // 5
 			temp = QString("DEBUG [ %1 ] %2").arg(QString::number(LOG_NUMBER++)).arg(qbuf);
-			displayLog(temp);
+			displayLog(temp, QColor(0,0,0));
 			break;
 		}
 		case LOG_INFO: {  // 4
 			temp = QString("INFO [ %1 ] %2").arg(QString::number(LOG_NUMBER++)).arg(qbuf);
-			displayLog(temp);
+			displayLog(temp, QColor(0,0,255));
 			break;
 		}
 		case LOG_WARN: {  // 3
 			temp = QString("WARN [ %1 ] %2").arg(QString::number(LOG_NUMBER++)).arg(qbuf);
-			displayLog(temp);
+			displayLog(temp, QColor(150,0,0));
 			break;
 		}
 		case LOG_ERROR: {  // 2
 			temp = QString("ERROR [ %1 ] %2").arg(QString::number(LOG_NUMBER++)).arg(qbuf);
-			displayLog(temp);
+			displayLog(temp, QColor(255,0,0));
 			break;
 		}
 		case LOG_FETAL: {  // 1
 			temp = QString("FETAL [ %1 ] %2").arg(QString::number(LOG_NUMBER++)).arg(qbuf);
-			displayLog(temp);
+			displayLog(temp, QColor(255,0,0));
 			break;
 		}
 		}
 	}
 }
-void QtGuiMain::onCustomContextMenuRequested/*SLOT*/(const QPoint& p) {
+
+void FtpGui::onCustomContextMenuRequested/*SLOT*/(const QPoint& p) {
 
 	point = &p;
 
@@ -345,7 +390,7 @@ void QtGuiMain::onCustomContextMenuRequested/*SLOT*/(const QPoint& p) {
 	delete uninstallAction;
 }
 
-void QtGuiMain::onCustomContextMenuRequestedDownTree/*SLOT*/(const QPoint& p) {
+void FtpGui::onCustomContextMenuRequestedDownTree/*SLOT*/(const QPoint& p) {
 
 	point = &p;
 

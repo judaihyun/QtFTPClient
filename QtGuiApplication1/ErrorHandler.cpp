@@ -31,9 +31,6 @@ void ErrorHandler::err_display(const char* msg) {
 
 
 
-void ErrorHandler::setLogLevel(logLevel level) {
-	lev = level;
-}
 
 /*
 void ErrorHandler::DisplayDir(const char *fmt, ...) {
@@ -51,3 +48,4 @@ SendMessage(dirEdit, EM_REPLACESEL, true, (LPARAM)cbuf);
 va_end(arg);
 }
 */
+
